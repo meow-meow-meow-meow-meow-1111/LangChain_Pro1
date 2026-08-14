@@ -41,7 +41,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Model & Chain Setup (Using ChatHuggingFace for conversational support)
+# 3. Model & Chain Setup
 @st.cache_resource
 def load_trip_chain():
     hf_token = st.secrets.get("HUGGINGFACEHUB_API_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
@@ -50,41 +50,56 @@ def load_trip_chain():
         st.error("⚠️ Hugging Face API Token not found in Secrets! Please check your Streamlit settings.")
         st.stop()
 
-    # 1. Base Endpoint
+    # Hosted serverless model
     endpoint = HuggingFaceEndpoint(
         repo_id="Qwen/Qwen2.5-7B-Instruct",
-        max_new_tokens=1024,
-        temperature=0.7,
+        max_new_tokens=1800,
+        temperature=0.6,
         huggingfacehub_api_token=hf_token
     )
     
-    # 2. Chat Wrapper handles conversational protocol cleanly
     llm = ChatHuggingFace(llm=endpoint)
 
-    # 3. Chat Prompt Template
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are an elite travel architect and local insider."),
-        ("user", """Create a structured, inspiring {duration_days}-day travel itinerary for {destination} during {season}.
+        (
+            "system",
+            "You are an elite travel architect. You must generate a complete, day-by-day plan covering EVERY single day requested (from Day 1 up to Day {duration_days}). Never skip or summarize days into one."
+        ),
+        (
+            "user",
+            """Create a comprehensive {duration_days}-day travel itinerary for {destination} during {season}.
 Budget Level: {budget_style}
 Traveler Preferences / Interests: {interests}
 
+CRITICAL RULES:
+1. You MUST generate separate entries for ALL {duration_days} days. (e.g. If {duration_days} is 3, include Day 1, Day 2, and Day 3).
+2. Keep each time block (Morning, Afternoon, Evening) to 1-2 punchy, actionable sentences so the complete itinerary fits within the response.
+
 Strict Output Format:
 ## 📍 Destination Brief & Vibe
-(A 2-sentence summary of the vibe, culture, and budgeting reality)
+(A 2-sentence summary of the vibe and budgeting approach)
 
 ## 🗓️ Day-by-Day Masterplan
-### Day 1: [Theme / Focus Area]
-- **Morning:** [Specific landmark/activity + local actionable tip]
-- **Afternoon:** [Cultural spot, walk, or activity matching budget]
-- **Evening:** [Scenic spot, twilight view, or night vibe]
+### Day 1: [Focus / Theme]
+- **Morning:** [Landmark or neighborhood + local tip]
+- **Afternoon:** [Activity matching budget]
+- **Evening:** [Scenic view, dining, or night vibe]
+
+### Day 2: [Focus / Theme]
+- **Morning:** [Landmark or neighborhood + local tip]
+- **Afternoon:** [Activity matching budget]
+- **Evening:** [Scenic view, dining, or night vibe]
+
+(Continue this exact pattern for all {duration_days} days)
 
 ## 🍽️ Local Culinary Highlights
-- **Must-Try 1:** [Dish Name] — [Where to get it & why it fits {budget_style}]
-- **Must-Try 2:** [Dish Name] — [Where to get it & why it fits {budget_style}]
+- **Must-Try 1:** [Dish Name] — [Where to find it & why it matches {budget_style}]
+- **Must-Try 2:** [Dish Name] — [Where to find it & why it matches {budget_style}]
 
 ## 💡 Local Insider Pro-Tip
-[One practical cultural, transit, or money-saving secret]
-""")
+[One practical transit, ticketing, or money-saving advice]
+"""
+        )
     ])
     
     return prompt | llm | StrOutputParser()
@@ -130,7 +145,7 @@ if generate_btn:
         </div>
         """, unsafe_allow_html=True)
         
-        with st.spinner("Crafting your bespoke travel itinerary..."):
+        with st.spinner(f"Crafting your complete {duration_days}-day itinerary..."):
             try:
                 chain = load_trip_chain()
                 itinerary = chain.invoke({
