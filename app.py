@@ -1,7 +1,7 @@
 import os
 import streamlit as st
-from langchain_huggingface import HuggingFaceEndpoint
-from langchain_core.prompts import PromptTemplate
+from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 # 1. Page Configuration
@@ -41,27 +41,30 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Model & Chain Setup
+# 3. Model & Chain Setup (Using ChatHuggingFace for conversational support)
 @st.cache_resource
 def load_trip_chain():
     hf_token = st.secrets.get("HUGGINGFACEHUB_API_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
     
     if not hf_token:
-        st.error("⚠️ Hugging Face API Token not found! Please add `HUGGINGFACEHUB_API_TOKEN` to Streamlit Secrets.")
+        st.error("⚠️ Hugging Face API Token not found in Secrets! Please check your Streamlit settings.")
         st.stop()
 
-    # Explicitly specify task="conversational" for chat models
-    llm = HuggingFaceEndpoint(
-        repo_id="HuggingFaceH4/zephyr-7b-beta",
-        task="conversational",
+    # 1. Base Endpoint
+    endpoint = HuggingFaceEndpoint(
+        repo_id="Qwen/Qwen2.5-7B-Instruct",
         max_new_tokens=1024,
         temperature=0.7,
         huggingfacehub_api_token=hf_token
     )
     
-    template = PromptTemplate.from_template(
-        """You are an elite travel architect and local insider.
-Create a structured, inspiring {duration_days}-day travel itinerary for {destination} during {season}.
+    # 2. Chat Wrapper handles conversational protocol cleanly
+    llm = ChatHuggingFace(llm=endpoint)
+
+    # 3. Chat Prompt Template
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are an elite travel architect and local insider."),
+        ("user", """Create a structured, inspiring {duration_days}-day travel itinerary for {destination} during {season}.
 Budget Level: {budget_style}
 Traveler Preferences / Interests: {interests}
 
@@ -81,10 +84,10 @@ Strict Output Format:
 
 ## 💡 Local Insider Pro-Tip
 [One practical cultural, transit, or money-saving secret]
-"""
-    )
+""")
+    ])
     
-    return template | llm | StrOutputParser()
+    return prompt | llm | StrOutputParser()
 
 # 4. Sidebar Controls
 with st.sidebar:
@@ -115,7 +118,7 @@ with st.sidebar:
 
 # 5. Main Content Area
 st.title("✈️ Wanderlust AI Itinerary Architect")
-st.caption("Powered by LangChain LCEL & Hugging Face Serverless Inference")
+st.caption("Powered by LangChain LCEL & Hugging Face Serverless Chat")
 
 if generate_btn:
     if not destination.strip():
