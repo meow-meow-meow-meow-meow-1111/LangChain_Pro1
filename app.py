@@ -41,20 +41,20 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Model & Chain Setup (Cached for Performance)
+# 3. Model & Chain Setup
 @st.cache_resource
 def load_trip_chain():
-    # Retrieve the token safely from Streamlit Secrets or Environment Variables
     hf_token = st.secrets.get("HUGGINGFACEHUB_API_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
     
     if not hf_token:
         st.error("⚠️ Hugging Face API Token not found! Please add `HUGGINGFACEHUB_API_TOKEN` to Streamlit Secrets.")
         st.stop()
 
-    # Hosted serverless model with verified text-generation pipeline support
+    # Explicitly specify task="conversational" for chat models
     llm = HuggingFaceEndpoint(
         repo_id="HuggingFaceH4/zephyr-7b-beta",
-        max_new_tokens=1200,
+        task="conversational",
+        max_new_tokens=1024,
         temperature=0.7,
         huggingfacehub_api_token=hf_token
     )
@@ -141,7 +141,6 @@ if generate_btn:
                 st.markdown(itinerary)
                 st.divider()
                 
-                # Download Button
                 st.download_button(
                     label="📥 Download Itinerary (.md)",
                     data=itinerary,
