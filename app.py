@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from langchain_community.llms import HuggingFaceEndpoint
+from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Custom CSS
+# 2. Styling
 st.markdown("""
 <style>
     .stButton>button {
@@ -26,15 +26,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Load LangChain Chain using Free Hugging Face Endpoint
+# 3. Model & Chain Setup
 @st.cache_resource
 def load_trip_chain():
-    # Uses Hugging Face's free cloud server instead of local RAM
+    # Read the token from Streamlit Secrets or Environment variables
+    token = st.secrets.get("HF_TOKEN") or os.getenv("HF_TOKEN")
+    
     llm = HuggingFaceEndpoint(
         repo_id="Qwen/Qwen2.5-72B-Instruct",
-        max_new_tokens=1200,
+        max_new_tokens=1024,
         temperature=0.7,
-        huggingfacehub_api_token=st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
+        huggingfacehub_api_token=token
     )
     
     template = PromptTemplate.from_template(
@@ -89,7 +91,7 @@ with st.sidebar:
     
     generate_btn = st.button("✨ Architect My Itinerary")
 
-# 5. Main UI Logic
+# 5. App Interface
 st.title("✈️ Wanderlust AI Itinerary Architect")
 st.caption("Powered by LangChain LCEL & Hugging Face Cloud Inference")
 
@@ -109,6 +111,7 @@ if generate_btn:
                 })
                 
                 st.markdown(itinerary)
+                st.divider()
                 st.download_button("📥 Download (.md)", itinerary, "itinerary.md")
             except Exception as e:
                 st.error(f"Error: {e}")
