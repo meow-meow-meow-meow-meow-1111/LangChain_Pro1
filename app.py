@@ -11,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Styling
+# 2. UI Styling
 st.markdown("""
 <style>
     .stButton>button {
@@ -29,14 +29,21 @@ st.markdown("""
 # 3. Model & Chain Setup
 @st.cache_resource
 def load_trip_chain():
-    # Read the token from Streamlit Secrets or Environment variables
-    token = st.secrets.get("HF_TOKEN") or os.getenv("HF_TOKEN")
+    # Retrieve the token safely from Streamlit secrets
+    hf_token = st.secrets.get("HUGGINGFACEHUB_API_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
     
+    if not hf_token:
+        st.error("⚠️ Hugging Face API Token not found in Secrets! Please check your Streamlit settings.")
+        st.stop()
+
+    # Lock to Hugging Face's native serverless API
     llm = HuggingFaceEndpoint(
-        repo_id="Qwen/Qwen2.5-72B-Instruct",
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+        provider="hf-inference",
+        task="text-generation",
         max_new_tokens=1024,
         temperature=0.7,
-        huggingfacehub_api_token=token
+        huggingfacehub_api_token=hf_token
     )
     
     template = PromptTemplate.from_template(
@@ -99,7 +106,7 @@ if generate_btn:
     if not destination.strip():
         st.error("Please enter a destination.")
     else:
-        with st.spinner("Crafting itinerary..."):
+        with st.spinner("Crafting your itinerary..."):
             try:
                 chain = load_trip_chain()
                 itinerary = chain.invoke({
